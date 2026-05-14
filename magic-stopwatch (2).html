@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Cronómetro</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Cronómetro">
+  <meta name="theme-color" content="#000000">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='115' fill='%23383838'/%3E%3Ccircle cx='256' cy='256' r='155' fill='none' stroke='%23666' stroke-width='14'/%3E%3Cline x1='256' y1='256' x2='256' y2='135' stroke='%23fff' stroke-width='20' stroke-linecap='round'/%3E%3Cline x1='256' y1='256' x2='325' y2='298' stroke='%23ccc' stroke-width='14' stroke-linecap='round'/%3E%3Ccircle cx='256' cy='256' r='9' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body {
+  background:#000; height:100%; width:100%;
+  font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;
+  overflow:hidden;
+}
+
+/* ══ CRONÓMETRO ══ */
+.screen {
+  background:#000; width:100%; height:100vh;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  gap:20px; position:relative;
+}
+.time-wrap { display:flex; align-items:center; justify-content:center; width:100%; }
+.time-display {
+  color:#fff; font-size:clamp(76px,20vw,100px);
+  font-weight:200; letter-spacing:-4px;
+  font-variant-numeric:tabular-nums; font-feature-settings:"tnum";
+  line-height:1; text-align:center; width:100%; padding:0 8px;
+}
+#secretTrigger { cursor:default; }
+
+/* mode indicator */
+.mode-pill {
+  display:none; background:#1c1c1e; border-radius:20px;
+  padding:5px 14px; font-size:12px; font-weight:500;
+  letter-spacing:0.3px; align-items:center; gap:6px;
+}
+.mode-pill.show { display:flex; }
+.mode-pill .mode-dot { width:6px; height:6px; border-radius:50%; background:#30d158; }
+.mode-pill span { color:#8e8e93; }
+.mode-pill strong { color:#fff; }
+
+/* stop counter */
+.stop-counter {
+  display:none; position:absolute; top:18px; left:50%; transform:translateX(-50%);
+  font-size:13px; color:#48484a; font-variant-numeric:tabular-nums;
+  letter-spacing:0.3px;
+}
+.stop-counter.show { display:block; }
+
+.buttons-section { width:100%; padding:0 32px; }
+.btn-row { display:flex; justify-content:center; align-items:center; gap:44px; width:100%; }
+.circle-btn {
+  width:86px; height:86px; border-radius:50%; border:none;
+  cursor:pointer; font-size:17px; font-weight:400;
+  display:flex; align-items:center; justify-content:center;
+  transition:filter 0.08s; flex-shrink:0;
+  -webkit-user-select:none; user-select:none;
+}
+.circle-btn:active { filter:brightness(0.7); }
+.btn-reset          { background:#1c1c1e; color:#fff; }
+.btn-reset:disabled { background:#111; color:#333; }
+.btn-start { background:#1c3320; color:#30d158; }
+.btn-stop  { background:#3a1212; color:#ff453a; }
+.dots { display:flex; gap:5px; align-items:center; }
+.dot { width:6px; height:6px; border-radius:50%; background:#2c2c2e; }
+.dot.on { background:#48484a; }
+.divider { width:100%; height:0.5px; background:#1c1c1e; margin-top:20px; }
+
+/* ══ PANELS ══ */
+.panel { display:none; position:absolute; inset:0; z-index:100; overflow-y:auto; }
+.panel.show { display:flex; flex-direction:column; }
+
+/* ══ SHARED NAV ══ */
+.p-nav {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:52px 28px 0; flex-shrink:0;
+}
+.p-nav-title { color:#fff; font-size:22px; font-weight:500; }
+.p-close {
+  color:#48484a; font-size:15px; cursor:pointer;
+  background:#1c1c1e; border-radius:20px; padding:6px 14px;
+}
+.p-close:active { opacity:0.5; }
+.p-back {
+  color:#48484a; font-size:15px; cursor:pointer;
+  background:#1c1c1e; border-radius:20px; padding:6px 14px;
+}
+.p-back:active { opacity:0.5; }
+
+/* ══ MENU PRINCIPAL ══ */
+#menuPanel { background:#000; }
+.menu-list { padding:20px 28px; display:flex; flex-direction:column; gap:10px; }
+.menu-card {
+  background:#0a0a0a; border:0.5px solid #1c1c1e; border-radius:18px;
+  padding:18px 20px; display:flex; align-items:center; gap:14px;
+  cursor:pointer; transition:background 0.1s;
+}
+.menu-card:active { background:#111; }
+.card-icon {
+  width:40px; height:40px; border-radius:11px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:19px; flex-shrink:0;
+}
+.ci-green  { background:#0d2e14; }
+.ci-blue   { background:#0a1a3a; }
+.ci-purple { background:#1a0a2e; }
+.ci-orange { background:#2e1a06; }
+.card-text { flex:1; }
+.card-title { color:#fff; font-size:16px; font-weight:400; }
+.card-sub   { color:#48484a; font-size:13px; margin-top:2px; }
+.card-arrow { color:#2c2c2e; font-size:20px; }
+.card-badge {
+  font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px;
+  background:#1c3320; color:#30d158;
+}
+
+/* ══ NÚMERO MÁGICO ══ */
+#magicPanel { background:#000; }
+.magic-sub-list { padding:16px 28px; display:flex; flex-direction:column; gap:10px; }
+
+/* ══ INPUT DIRECTO ══ */
+#inputPanel { background:#000; }
+.input-display-area { flex:1; display:flex; align-items:center; justify-content:center; }
+.input-number {
+  color:#fff; font-size:96px; font-weight:100;
+  font-variant-numeric:tabular-nums; letter-spacing:-4px;
+}
+.input-number.ph { color:#2c2c2e; }
+.input-keypad { padding:0 20px 32px; flex-shrink:0; }
+.kg { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+.k {
+  aspect-ratio:1; border-radius:50%; border:none;
+  background:#1c1c1e; color:#fff; font-size:28px; font-weight:300;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:filter 0.08s;
+  -webkit-user-select:none; user-select:none;
+}
+.k:active { filter:brightness(0.6); }
+.k.k-del { color:#636366; font-size:20px; }
+.k.k-ok  { background:#1c3320; color:#30d158; font-size:17px; font-weight:500; }
+.k.k-x   { background:transparent; cursor:default; }
+.k.k-x:active { filter:none; }
+
+/* ══ LOCK SCREEN ══ */
+#lockPanel {
+  background:linear-gradient(160deg,#2a3a1e 0%,#1a2814 40%,#181810 70%,#201a08 100%);
+  align-items:center; justify-content:space-between; padding:56px 24px 36px;
+}
+.lock-top { display:flex; flex-direction:column; align-items:center; gap:18px; }
+.lock-title { color:#fff; font-size:22px; font-weight:300; }
+.lock-dots { display:flex; gap:18px; }
+.lock-dot {
+  width:12px; height:12px; border-radius:50%;
+  border:1.5px solid rgba(255,255,255,0.5); background:transparent;
+  transition:background 0.12s;
+}
+.lock-dot.filled { background:rgba(255,255,255,0.9); }
+.numpad { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; width:100%; max-width:300px; }
+.nk {
+  aspect-ratio:1; border-radius:50%;
+  border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.06);
+  color:#fff; display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  cursor:pointer; -webkit-user-select:none; user-select:none;
+}
+.nk:active { background:rgba(255,255,255,0.22); }
+.nk .nb { font-size:30px; font-weight:300; line-height:1; }
+.nk .ns { font-size:9px; letter-spacing:1.5px; color:rgba(255,255,255,0.4); margin-top:2px; }
+.lock-bottom { display:flex; justify-content:space-between; align-items:center; width:100%; max-width:300px; }
+.lock-act { color:rgba(255,255,255,0.7); font-size:15px; font-weight:300; cursor:pointer; padding:10px 8px; }
+.lock-act:active { opacity:0.3; }
+.lock-zero { width:84px; height:84px; }
+
+/* ══ MIS NÚMEROS ══ */
+#myNumPanel { background:#000; }
+.my-nums-display {
+  display:flex; justify-content:center; gap:12px; align-items:center;
+  padding:28px 28px 0; flex-wrap:wrap;
+}
+.mn-chip {
+  background:#1c1c1e; border-radius:16px;
+  min-width:54px; height:54px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:24px; font-weight:200; color:#fff;
+  font-variant-numeric:tabular-nums; position:relative;
+  cursor:pointer; border:0.5px solid #2c2c2e;
+}
+.mn-chip .mn-del {
+  position:absolute; top:-6px; right:-6px;
+  width:20px; height:20px; border-radius:50%;
+  background:#ff453a; color:#fff; font-size:12px;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer;
+}
+.mn-chip.empty {
+  background:#111; border:0.5px dashed #2c2c2e; color:#333;
+  font-size:28px; font-weight:100;
+}
+.mn-hint { color:#48484a; font-size:13px; text-align:center; padding:12px 28px 0; }
+.mn-keypad { padding:0 20px 32px; margin-top:auto; }
+
+/* ══ PROGRAMAR ══ */
+#programPanel { background:#000; }
+.prog-list { padding:20px 28px; display:flex; flex-direction:column; gap:8px; }
+.prog-row {
+  background:#0a0a0a; border:0.5px solid #1c1c1e; border-radius:14px;
+  padding:16px 18px; display:flex; align-items:center; gap:12px;
+}
+.prog-num-badge {
+  width:28px; height:28px; border-radius:50%;
+  background:#1c1c1e; color:#636366; font-size:13px; font-weight:500;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.prog-label { color:#fff; font-size:15px; flex:1; }
+.prog-sub   { color:#48484a; font-size:12px; margin-top:2px; }
+.prog-toggle {
+  display:flex; background:#1c1c1e; border-radius:20px; padding:3px; gap:2px; flex-shrink:0;
+}
+.prog-opt {
+  padding:5px 10px; border-radius:16px; font-size:12px; font-weight:500;
+  cursor:pointer; color:#48484a; transition:all 0.15s;
+}
+.prog-opt.active-m { background:#1c3320; color:#30d158; }
+.prog-opt.active-n { background:#1a0a2e; color:#bf5af2; }
+.prog-opt.active-off { background:#222; color:#555; }
+.prog-save {
+  margin:0 28px 32px; background:#1c3320; border-radius:14px;
+  color:#30d158; font-size:17px; font-weight:500; padding:16px;
+  text-align:center; cursor:pointer; border:none;
+}
+.prog-save:active { filter:brightness(0.7); }
+.prog-active-info {
+  margin:0 28px; background:#0a0a0a; border:0.5px solid #1c1c1e;
+  border-radius:14px; padding:14px 18px;
+  color:#48484a; font-size:13px; line-height:1.6;
+}
+.prog-active-info strong { color:#8e8e93; }
+</style>
+</head>
+<body>
+
+<!-- CRONÓMETRO -->
+<div class="screen" id="mainScreen">
+  <div class="stop-counter" id="stopCounter"></div>
+  <div class="time-wrap">
+    <div class="time-display">
+      <span id="secretTrigger">00</span><span id="timeRest">:00,00</span>
+    </div>
+  </div>
+  <div class="mode-pill" id="modePill">
+    <div class="mode-dot"></div>
+    <span id="modePillText">Modo activo</span>
+  </div>
+  <div class="buttons-section">
+    <div class="btn-row">
+      <button class="circle-btn btn-reset" id="btnReset" disabled>Reset</button>
+      <div class="dots"><div class="dot on"></div><div class="dot"></div></div>
+      <button class="circle-btn btn-start" id="btnStart">Start</button>
+    </div>
+    <div class="divider"></div>
+  </div>
+</div>
+
+<!-- MENÚ PRINCIPAL -->
+<div class="panel" id="menuPanel">
+  <div class="p-nav">
+    <div class="p-nav-title">Ajuste</div>
+    <div class="p-close" id="menuClose">Cerrar</div>
+  </div>
+  <div class="menu-list">
+    <div class="menu-card" id="menuGoMagic">
+      <div class="card-icon ci-green">🔢</div>
+      <div class="card-text">
+        <div class="card-title">Número mágico</div>
+        <div class="card-sub" id="menuMagicSub">Suma de dígitos → 18</div>
+      </div>
+      <div class="card-arrow">›</div>
+    </div>
+    <div class="menu-card" id="menuGoMyNums">
+      <div class="card-icon ci-purple">🎯</div>
+      <div class="card-text">
+        <div class="card-title">Mis números</div>
+        <div class="card-sub" id="menuMyNumsSub">Segundos exactos predefinidos</div>
+      </div>
+      <div class="card-arrow">›</div>
+    </div>
+    <div class="menu-card" id="menuGoProgram">
+      <div class="card-icon ci-orange">⚙️</div>
+      <div class="card-text">
+        <div class="card-title">Programar paradas</div>
+        <div class="card-sub" id="menuProgSub">Sin programa activo</div>
+      </div>
+      <div class="card-arrow">›</div>
+    </div>
+    <div class="menu-card" id="menuGoLock">
+      <div class="card-icon ci-blue">🔒</div>
+      <div class="card-text">
+        <div class="card-title">Pantalla bloqueada</div>
+        <div class="card-sub">Cambiar número como código</div>
+      </div>
+      <div class="card-arrow">›</div>
+    </div>
+  </div>
+</div>
+
+<!-- NÚMERO MÁGICO (sub-menú) -->
+<div class="panel" id="magicPanel">
+  <div class="p-nav">
+    <div class="p-back" id="magicBack">‹ Ajuste</div>
+    <div class="p-nav-title" style="font-size:17px">Número mágico</div>
+    <div style="width:72px"></div>
+  </div>
+  <div class="magic-sub-list">
+    <div class="menu-card" id="magicGoInput">
+      <div class="card-icon ci-green">⌨️</div>
+      <div class="card-text">
+        <div class="card-title">Escribir número</div>
+        <div class="card-sub">Teclado directo</div>
+      </div>
+      <div class="card-arrow">›</div>
+    </div>
+    <!-- combos info card -->
+    <div style="background:#0a0a0a;border:0.5px solid #1c1c1e;border-radius:18px;padding:18px 20px;">
+      <div style="color:#48484a;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;">Combinaciones por número</div>
+      <div id="combosList" style="display:flex;flex-direction:column;gap:0;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- INPUT DIRECTO -->
+<div class="panel" id="inputPanel">
+  <div class="p-nav">
+    <div class="p-back" id="inputBack">‹ Volver</div>
+    <div class="p-nav-title" style="font-size:17px">Número mágico</div>
+    <div style="width:72px"></div>
+  </div>
+  <div class="input-display-area">
+    <div class="input-number ph" id="inputNum">–</div>
+  </div>
+  <div class="input-keypad">
+    <div class="kg">
+      <div class="k" data-n="1">1</div><div class="k" data-n="2">2</div><div class="k" data-n="3">3</div>
+      <div class="k" data-n="4">4</div><div class="k" data-n="5">5</div><div class="k" data-n="6">6</div>
+      <div class="k" data-n="7">7</div><div class="k" data-n="8">8</div><div class="k" data-n="9">9</div>
+      <div class="k k-del" data-action="del">⌫</div>
+      <div class="k" data-n="0">0</div>
+      <div class="k k-ok" data-action="ok">OK</div>
+    </div>
+  </div>
+</div>
+
+<!-- LOCK SCREEN -->
+<div class="panel" id="lockPanel">
+  <div class="lock-top">
+    <div class="lock-title">Introduzca el código</div>
+    <div class="lock-dots">
+      <div class="lock-dot" id="ld0"></div><div class="lock-dot" id="ld1"></div>
+      <div class="lock-dot" id="ld2"></div><div class="lock-dot" id="ld3"></div>
+    </div>
+  </div>
+  <div class="numpad" id="numpad">
+    <div class="nk" data-n="1"><span class="nb">1</span><span class="ns"></span></div>
+    <div class="nk" data-n="2"><span class="nb">2</span><span class="ns">ABC</span></div>
+    <div class="nk" data-n="3"><span class="nb">3</span><span class="ns">DEF</span></div>
+    <div class="nk" data-n="4"><span class="nb">4</span><span class="ns">GHI</span></div>
+    <div class="nk" data-n="5"><span class="nb">5</span><span class="ns">JKL</span></div>
+    <div class="nk" data-n="6"><span class="nb">6</span><span class="ns">MNO</span></div>
+    <div class="nk" data-n="7"><span class="nb">7</span><span class="ns">PQRS</span></div>
+    <div class="nk" data-n="8"><span class="nb">8</span><span class="ns">TUV</span></div>
+    <div class="nk" data-n="9"><span class="nb">9</span><span class="ns">WXYZ</span></div>
+  </div>
+  <div class="lock-bottom">
+    <div class="lock-act" id="lockBack">‹ Volver</div>
+    <div class="nk lock-zero" data-n="0"><span class="nb">0</span></div>
+    <div class="lock-act" id="lockDel">⌫</div>
+  </div>
+</div>
+
+<!-- MIS NÚMEROS -->
+<div class="panel" id="myNumPanel">
+  <div class="p-nav">
+    <div class="p-back" id="myNumBack">‹ Ajuste</div>
+    <div class="p-nav-title" style="font-size:17px">Mis números</div>
+    <div style="width:72px"></div>
+  </div>
+  <div class="my-nums-display" id="myNumsDisplay"></div>
+  <div class="mn-hint" id="myNumHint">Toca un número para eliminarlo · Máx. 5</div>
+  <div class="mn-keypad">
+    <div class="kg" id="myNumKg">
+      <div class="k" data-n="1">1</div><div class="k" data-n="2">2</div><div class="k" data-n="3">3</div>
+      <div class="k" data-n="4">4</div><div class="k" data-n="5">5</div><div class="k" data-n="6">6</div>
+      <div class="k" data-n="7">7</div><div class="k" data-n="8">8</div><div class="k" data-n="9">9</div>
+      <div class="k k-del" data-action="del">⌫</div>
+      <div class="k" data-n="0">0</div>
+      <div class="k k-ok" data-action="add">+ Añadir</div>
+    </div>
+  </div>
+</div>
+
+<!-- PROGRAMAR -->
+<div class="panel" id="programPanel">
+  <div class="p-nav">
+    <div class="p-back" id="progBack">‹ Ajuste</div>
+    <div class="p-nav-title" style="font-size:17px">Programar</div>
+    <div style="width:72px"></div>
+  </div>
+  <div class="prog-list" id="progList"></div>
+
+  <div style="height:16px"></div>
+  <button class="prog-save" id="progSave">Activar programa</button>
+  <div style="height:32px"></div>
+</div>
+
+<script>
+(function(){
+  // ── State ──
+  let magic = 18;
+  let myNums = [];            // list of seconds e.g. [1,5,3]
+  let myNumEntry = '';
+  let lockEntry = '';
+  let inputEntry = '';
+
+  // Program: array of 5 stops, each: 'magic' | 'mynums' | 'off'
+  let program = ['magic','magic','magic','magic','magic'];
+  let PROG_MAX = 12;
+  let programActive = false;
+  let stopIndex = 0;          // which stop we're on
+
+  let running = false, startWall = 0, accumulated = 0, rafId = null;
+
+  // ── DOM ──
+  const secretSpan  = document.getElementById('secretTrigger');
+  const timeRest    = document.getElementById('timeRest');
+  const btnStart    = document.getElementById('btnStart');
+  const btnReset    = document.getElementById('btnReset');
+  const modePill    = document.getElementById('modePill');
+  const modePillTxt = document.getElementById('modePillText');
+  const stopCounter = document.getElementById('stopCounter');
+
+  const panels = {};
+  ['menu','magic','input','lock','myNum','program'].forEach(id=>{
+    panels[id] = document.getElementById(id+'Panel') || document.getElementById(id.charAt(0).toUpperCase()+id.slice(1)+'Panel');
+  });
+  // correct IDs
+  const menuPanel    = document.getElementById('menuPanel');
+  const magicPanel   = document.getElementById('magicPanel');
+  const inputPanel   = document.getElementById('inputPanel');
+  const lockPanel    = document.getElementById('lockPanel');
+  const myNumPanel   = document.getElementById('myNumPanel');
+  const programPanel = document.getElementById('programPanel');
+
+  const lockDots = [0,1,2,3].map(i=>document.getElementById('ld'+i));
+  const inputNum = document.getElementById('inputNum');
+
+  // ── Helpers ──
+  function pad2(n){ return String(n).padStart(2,'0'); }
+
+  function setDisplay(ms){
+    let tc=Math.floor(ms/10), ts=Math.floor(tc/100), cs=tc%100;
+    secretSpan.textContent=pad2(Math.floor(ts/60));
+    timeRest.textContent=':'+pad2(ts%60)+','+pad2(cs);
+  }
+
+  function digitSum6(mins,secs,cs){
+    return Math.floor(mins/10)+mins%10+Math.floor(secs/10)+secs%10+Math.floor(cs/10)+cs%10;
+  }
+
+  // Snap for magic number: keep seconds, find closest valid cs
+  function snapMagic(ms){
+    let tc=Math.floor(ms/10), ts=Math.floor(tc/100), curCs=tc%100;
+    let mins=Math.floor(ts/60), secs=ts%60;
+    let valid=[];
+    for(let cs=0;cs<100;cs++) if(digitSum6(mins,secs,cs)===magic) valid.push(cs);
+    if(valid.length){
+      return (ts*100 + valid.reduce((a,b)=>Math.abs(a-curCs)<Math.abs(b-curCs)?a:b))*10;
+    }
+    for(let j=1;j<=10;j++){
+      let s2=ts+j, m2=Math.floor(s2/60), ss2=s2%60;
+      for(let cs=0;cs<100;cs++) if(digitSum6(m2,ss2,cs)===magic) return (s2*100+cs)*10;
+    }
+    return ms;
+  }
+
+  // Snap for myNums: land on nearest second in list
+  // If stopped before ,50 → use ,35 style (low cs)
+  // If stopped at/after ,50 → use ,53 style (high cs)
+  function snapMyNums(ms){
+    if(!myNums.length) return ms;
+    let tc=Math.floor(ms/10), ts=Math.floor(tc/100), curCs=tc%100;
+    let curSec = ts % 60; // seconds part (ignoring minutes for simplicity, use full ts)
+
+    // Find nearest target second (in terms of total seconds from start)
+    // myNums are target seconds (0-59), find nearest ts that ends in one of myNums
+    let best = null, bestDist = Infinity;
+    for(let num of myNums){
+      // nearest ts where ts%60 === num (or ts===num for first minute)
+      // Search in ±30s window
+      for(let candidate = Math.max(0, ts-30); candidate <= ts+30; candidate++){
+        if(candidate%60 === num){
+          let dist = Math.abs(candidate - ts);
+          if(dist < bestDist){ bestDist=dist; best=candidate; }
+        }
+      }
+    }
+    if(best===null) return ms;
+
+    // centésimas: if curCs < 50 → use low cs (30-39 range), else high (50-69 range)
+    let cs = curCs < 50 ? 35 : 53;
+    return (best*100 + cs)*10;
+  }
+
+  function currentSnapFn(){
+    if(programActive){
+      let mode = program[stopIndex] || 'off';
+      if(mode==='mynums') return snapMyNums;
+      if(mode==='magic')  return snapMagic;
+      return (ms)=>ms; // off = free stop
+    }
+    return snapMagic; // default
+  }
+
+  function elapsedMs(){ return running?accumulated+(Date.now()-startWall):accumulated; }
+  function tick(){ setDisplay(elapsedMs()); rafId=requestAnimationFrame(tick); }
+
+  // ── Stopwatch ──
+  btnStart.addEventListener('click',()=>{
+    if(!running){
+      running=true; startWall=Date.now();
+      btnStart.textContent='Stop'; btnStart.className='circle-btn btn-stop';
+      btnReset.disabled=false; rafId=requestAnimationFrame(tick);
+    } else {
+      cancelAnimationFrame(rafId); running=false;
+      let raw=accumulated+(Date.now()-startWall);
+      accumulated=currentSnapFn()(raw);
+      setDisplay(accumulated);
+      btnStart.textContent='Start'; btnStart.className='circle-btn btn-start';
+      // advance program
+      if(programActive){
+        stopIndex++;
+        if(stopIndex>=program.length||program.slice(stopIndex).every(p=>p==='off')){
+          stopIndex=0; // reset after last meaningful stop
+        }
+        updateModeUI();
+      }
+    }
+  });
+
+  btnReset.addEventListener('click',()=>{
+    if(!running){
+      accumulated=0; setDisplay(0); btnReset.disabled=true;
+      stopIndex=0; updateModeUI();
+    }
+  });
+
+  function updateModeUI(){
+    if(!programActive){ modePill.classList.remove('show'); stopCounter.classList.remove('show'); return; }
+    let mode=program[stopIndex]||'off';
+    let label = mode==='magic'?`Número mágico (${magic})` : mode==='mynums'?`Mis números (${myNums.join(', ')})` : 'Libre';
+    modePillTxt.textContent=label;
+    modePill.classList.add('show');
+    let activeStops=program.filter(p=>p!=='off').length;
+    stopCounter.textContent=`Parada ${stopIndex+1} / ${activeStops}`;
+    stopCounter.classList.add('show');
+  }
+
+  // ── Panels ──
+  function showPanel(p){
+    [menuPanel,magicPanel,inputPanel,lockPanel,myNumPanel,programPanel].forEach(x=>x.classList.remove('show'));
+    if(p) p.classList.add('show');
+  }
+
+  secretSpan.addEventListener('click',()=>{ refreshMenuSubs(); showPanel(menuPanel); });
+  document.getElementById('menuClose').addEventListener('click',()=>showPanel(null));
+
+  function refreshMenuSubs(){
+    document.getElementById('menuMagicSub').textContent=`Suma de dígitos → ${magic}`;
+    document.getElementById('menuMyNumsSub').textContent=myNums.length?`Segundos: ${myNums.join('  ·  ')}`:'Sin números definidos';
+    document.getElementById('menuProgSub').textContent=programActive?`Activo · parada ${stopIndex+1}`:'Sin programa activo';
+  }
+
+  // ── Número mágico ──
+  document.getElementById('menuGoMagic').addEventListener('click',()=>{ buildCombos(); showPanel(magicPanel); });
+  document.getElementById('magicBack').addEventListener('click',()=>{ refreshMenuSubs(); showPanel(menuPanel); });
+  document.getElementById('magicGoInput').addEventListener('click',()=>{
+    inputEntry=''; inputNum.textContent='–'; inputNum.classList.add('ph'); showPanel(inputPanel);
+  });
+  document.getElementById('inputBack').addEventListener('click',()=>{ buildCombos(); showPanel(magicPanel); });
+
+  document.querySelector('.kg').addEventListener('click',(e)=>{
+    const k=e.target.closest('[data-n],[data-action]'); if(!k) return;
+    if(k.dataset.action==='del'){
+      inputEntry=inputEntry.slice(0,-1);
+      inputNum.textContent=inputEntry||'–'; inputNum.classList.toggle('ph',!inputEntry);
+    } else if(k.dataset.action==='ok'){
+      if(inputEntry) magic=Math.min(99,parseInt(inputEntry)||0);
+      buildCombos(); showPanel(magicPanel);
+    } else {
+      if(inputEntry.length>=2) return;
+      inputEntry+=k.dataset.n; inputNum.textContent=inputEntry; inputNum.classList.remove('ph');
+    }
+  });
+
+  function buildCombos(){
+    const data=[{n:'16 / 17',c:862,best:true},{n:'15 / 18',c:838},{n:'14 / 19',c:790},{n:'13 / 20',c:721},{n:'12 / 21',c:637},{n:'11 / 22',c:544}];
+    const max=862;
+    document.getElementById('combosList').innerHTML=data.map(d=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:0.5px solid #111;">
+        <span style="color:${d.best?'#30d158':'#fff'};font-size:14px;min-width:54px;">${d.n}</span>
+        <div style="flex:1;height:3px;background:#111;border-radius:2px;">
+          <div style="width:${Math.round(d.c/max*100)}%;height:3px;border-radius:2px;background:${d.best?'#30d158':'#48484a'}"></div>
+        </div>
+        <span style="color:#48484a;font-size:12px;min-width:44px;text-align:right;">${d.c}${d.best?' ⭐':''}</span>
+      </div>`).join('');
+  }
+
+  // ── Lock screen ──
+  document.getElementById('menuGoLock').addEventListener('click',()=>{ lockEntry=''; updateLockDots(); showPanel(lockPanel); });
+  document.getElementById('lockBack').addEventListener('click',()=>{ refreshMenuSubs(); showPanel(menuPanel); });
+  document.getElementById('lockDel').addEventListener('click',()=>{ lockEntry=lockEntry.slice(0,-1); updateLockDots(); });
+  function handleLockKey(n){ if(lockEntry.length>=4) return; lockEntry+=n; updateLockDots(); if(lockEntry.length===4) setTimeout(confirmLock,160); }
+  document.getElementById('numpad').addEventListener('click',(e)=>{ const k=e.target.closest('[data-n]'); if(k) handleLockKey(k.dataset.n); });
+  document.querySelector('.lock-zero').addEventListener('click',()=>handleLockKey('0'));
+  function updateLockDots(){ lockDots.forEach((d,i)=>d.classList.toggle('filled',i<lockEntry.length)); }
+  function confirmLock(){
+    magic=parseInt(lockEntry,10)||0;
+    lockDots.forEach(d=>d.style.background='rgba(255,255,255,0.95)');
+    setTimeout(()=>{ lockDots.forEach(d=>{ d.style.background=''; d.classList.remove('filled'); }); lockEntry=''; refreshMenuSubs(); showPanel(null); },360);
+  }
+
+  // ── Mis números ──
+  document.getElementById('menuGoMyNums').addEventListener('click',()=>{ renderMyNums(); showPanel(myNumPanel); });
+  document.getElementById('myNumBack').addEventListener('click',()=>{ refreshMenuSubs(); showPanel(menuPanel); });
+
+  function renderMyNums(){
+    const disp=document.getElementById('myNumsDisplay');
+    disp.innerHTML='';
+    myNums.forEach((n,i)=>{
+      const chip=document.createElement('div'); chip.className='mn-chip';
+      chip.innerHTML=`${n}<div class="mn-del" data-idx="${i}">×</div>`;
+      disp.appendChild(chip);
+    });
+    for(let i=myNums.length;i<5;i++){
+      const chip=document.createElement('div'); chip.className='mn-chip empty'; chip.textContent='+';
+      disp.appendChild(chip);
+    }
+    document.getElementById('myNumHint').textContent=myNums.length>=5?'Máximo 5 números · Toca × para eliminar':'Toca × para eliminar · Máx. 5';
+    // entry field
+    myNumEntry='';
+    const addBtn=document.querySelector('#myNumKg .k-ok');
+    if(addBtn) addBtn.textContent='+ Añadir';
+  }
+
+  document.getElementById('myNumsDisplay').addEventListener('click',(e)=>{
+    const d=e.target.closest('[data-idx]'); if(!d) return;
+    myNums.splice(parseInt(d.dataset.idx),1); renderMyNums();
+  });
+
+  document.getElementById('myNumKg').addEventListener('click',(e)=>{
+    const k=e.target.closest('[data-n],[data-action]'); if(!k) return;
+    if(k.dataset.action==='del'){
+      myNumEntry=myNumEntry.slice(0,-1);
+      document.querySelector('#myNumKg .k-ok').textContent=myNumEntry?`+ Añadir ${myNumEntry}`:'+ Añadir';
+    } else if(k.dataset.action==='add'){
+      if(myNumEntry&&myNums.length<5){
+        let v=parseInt(myNumEntry)%60;
+        if(!myNums.includes(v)){ myNums.push(v); }
+      }
+      myNumEntry=''; renderMyNums();
+    } else {
+      if(myNumEntry.length>=2) return;
+      myNumEntry+=k.dataset.n;
+      document.querySelector('#myNumKg .k-ok').textContent=`+ Añadir ${myNumEntry}`;
+    }
+  });
+
+  // ── Programar ──
+  document.getElementById('menuGoProgram').addEventListener('click',()=>{ renderProgram(); showPanel(programPanel); });
+  document.getElementById('progBack').addEventListener('click',()=>{ refreshMenuSubs(); showPanel(menuPanel); });
+
+  function renderProgram(){
+    // Auto-grow: if all slots are active and under max, add one more
+    if(program.length < PROG_MAX && program.every(p=>p!=='off')){
+      program.push('off');
+    }
+
+    const list=document.getElementById('progList');
+    list.innerHTML='';
+    for(let i=0;i<program.length;i++){
+      const mode=program[i];
+      const row=document.createElement('div'); row.className='prog-row';
+      const isNew = i===program.length-1 && program.length>5 && mode==='off';
+      row.innerHTML=`
+        <div class="prog-num-badge" style="${isNew?'color:#30d158;background:#0d2e14':''}">${i+1}</div>
+        <div style="flex:1;">
+          <div style="color:${isNew?'#48484a':'#fff'};font-size:15px;">Parada ${i+1}</div>
+
+        </div>
+        <div class="prog-toggle">
+          <div class="prog-opt ${mode==='magic'?'active-m':''}" data-stop="${i}" data-mode="magic">Mágico</div>
+          <div class="prog-opt ${mode==='mynums'?'active-n':''}" data-stop="${i}" data-mode="mynums">Mis n.</div>
+          <div class="prog-opt ${mode==='off'?'active-off':''}" data-stop="${i}" data-mode="off">—</div>
+        </div>`;
+      list.appendChild(row);
+    }
+
+    const hint=document.createElement('div');
+    hint.style.cssText='color:#2c2c2e;font-size:12px;text-align:center;padding:10px 0;';
+    if(program.length < PROG_MAX)
+      hint.textContent='Activa la última parada para añadir más · máx. 12';
+    else
+      hint.textContent='Máximo 12 paradas alcanzado';
+    list.appendChild(hint);
+
+    list.addEventListener('click',(e)=>{
+      const opt=e.target.closest('[data-mode]'); if(!opt) return;
+      let idx=parseInt(opt.dataset.stop);
+      program[idx]=opt.dataset.mode;
+      renderProgram();
+    });
+    updateProgInfo();
+  }
+
+  function modeLabel(m){ return m==='magic'?`Número mágico (${magic})`:m==='mynums'?`Mis números (${myNums.join(', ')||'—'})`:'Desactivada'; }
+
+  function updateProgInfo(){}
+
+  document.getElementById('progSave').addEventListener('click',()=>{
+    let active=program.filter(p=>p!=='off');
+    if(!active.length){ alert('Activa al menos una parada.'); return; }
+    programActive=true; stopIndex=0;
+    updateModeUI(); refreshMenuSubs(); showPanel(null);
+  });
+
+  // ── Init ──
+  buildCombos();
+  setDisplay(0);
+
+})();
+</script>
+</body>
+</html>
