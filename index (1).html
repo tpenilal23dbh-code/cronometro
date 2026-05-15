@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cronómetro">
+<meta name="theme-color" content="#000000">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='115' fill='%23383838'/%3E%3Ccircle cx='256' cy='256' r='155' fill='none' stroke='%23666' stroke-width='14'/%3E%3Cline x1='256' y1='256' x2='256' y2='135' stroke='%23fff' stroke-width='20' stroke-linecap='round'/%3E%3Cline x1='256' y1='256' x2='325' y2='298' stroke='%23ccc' stroke-width='14' stroke-linecap='round'/%3E%3Ccircle cx='256' cy='256' r='9' fill='%23fff'/%3E%3C/svg%3E">
+<title>Cronómetro</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{background:#000;height:100%;width:100%;font-family:-apple-system,'SF Pro Display','Helvetica Neue',sans-serif;overflow:hidden}
+
+/* ── STOPWATCH ── */
+.screen{background:#000;width:100%;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;position:relative}
+
+.time-wrap{display:flex;align-items:center;justify-content:center;width:100%}
+.time-display{color:#fff;font-size:clamp(76px,20vw,100px);font-weight:200;letter-spacing:-4px;font-variant-numeric:tabular-nums;font-feature-settings:"tnum";line-height:1;text-align:center;width:100%;padding:0 8px}
+#secretTrigger{cursor:default}
+
+/* Mode selector */
+.mode-selector{display:flex;background:#111;border-radius:22px;padding:3px;gap:2px}
+.ms-opt{padding:7px 18px;border-radius:18px;font-size:13px;font-weight:500;cursor:pointer;color:#48484a;transition:all 0.18s;-webkit-user-select:none;user-select:none}
+.ms-opt.sel-m{background:#1c3320;color:#30d158}
+.ms-opt.sel-n{background:#1c1040;color:#bf5af2}
+.ms-opt.sel-p{background:#2a1a00;color:#ff9f0a}
+
+/* Program stop indicator */
+.prog-indicator{display:none;font-size:12px;color:#48484a;letter-spacing:0.3px}
+.prog-indicator.show{display:block}
+
+.buttons-section{width:100%;padding:0 32px}
+.btn-row{display:flex;justify-content:center;align-items:center;gap:44px;width:100%}
+.circle-btn{width:86px;height:86px;border-radius:50%;border:none;cursor:pointer;font-size:17px;font-weight:400;display:flex;align-items:center;justify-content:center;transition:filter 0.08s;flex-shrink:0;-webkit-user-select:none;user-select:none}
+.circle-btn:active{filter:brightness(0.7)}
+.btn-reset{background:#1c1c1e;color:#fff}
+.btn-reset:disabled{background:#111;color:#333}
+.btn-start{background:#1c3320;color:#30d158}
+.btn-stop{background:#3a1212;color:#ff453a}
+.dots{display:flex;gap:5px;align-items:center}
+.dot{width:6px;height:6px;border-radius:50%;background:#2c2c2e}
+.dot.on{background:#48484a}
+.divider{width:100%;height:0.5px;background:#1c1c1e;margin-top:20px}
+
+/* ── PANELS ── */
+.panel{display:none;position:absolute;inset:0;z-index:100;overflow-y:auto;background:#000}
+.panel.show{display:flex;flex-direction:column}
+
+/* Nav */
+.p-nav{display:flex;align-items:center;justify-content:space-between;padding:52px 24px 0;flex-shrink:0}
+.p-title{color:#fff;font-size:22px;font-weight:600;letter-spacing:-0.3px}
+.p-title-sm{color:#fff;font-size:17px;font-weight:500}
+.p-btn{color:#8e8e93;font-size:14px;cursor:pointer;padding:7px 16px;background:#1a1a1a;border-radius:20px;border:0.5px solid #2a2a2a}
+.p-btn:active{opacity:0.5}
+
+/* ── MENU ── */
+.menu-section{padding:20px 20px 0}
+.menu-section-label{color:#48484a;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.9px;padding:0 4px;margin-bottom:8px}
+.menu-rows{background:#0d0d0d;border-radius:16px;border:0.5px solid #1a1a1a;overflow:hidden;margin-bottom:0}
+.mrow{display:flex;align-items:center;padding:15px 16px;cursor:pointer;border-bottom:0.5px solid #141414;gap:14px}
+.mrow:last-child{border-bottom:none}
+.mrow:active{background:#141414}
+.mrow-left{flex:1}
+.mrow-title{color:#fff;font-size:16px;font-weight:400}
+.mrow-sub{color:#3a3a3a;font-size:13px;margin-top:2px}
+.mrow-right{color:#2c2c2e;font-size:18px}
+.mrow-value{color:#48484a;font-size:14px;font-variant-numeric:tabular-nums}
+
+/* ── MAGIC INPUT ── */
+.big-display-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+.big-number{color:#fff;font-size:96px;font-weight:100;font-variant-numeric:tabular-nums;letter-spacing:-4px}
+.big-number.ph{color:#222}
+.big-hint{color:#2a2a2a;font-size:13px}
+.keypad{padding:0 16px 32px;flex-shrink:0}
+.kg{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.k{aspect-ratio:1;border-radius:50%;border:none;background:#1a1a1a;color:#fff;font-size:28px;font-weight:300;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:filter 0.08s;-webkit-user-select:none;user-select:none}
+.k:active{filter:brightness(0.55)}
+.k-del{color:#555;font-size:20px}
+.k-ok{background:#1c3320;color:#30d158;font-size:17px;font-weight:600}
+.k-empty{background:transparent;cursor:default}
+.k-empty:active{filter:none}
+
+/* ── LOCK ── */
+#lockPanel{background:linear-gradient(160deg,#2a3a1e 0%,#1a2814 40%,#181810 70%,#201a08 100%);align-items:center;justify-content:space-between;padding:56px 24px 36px}
+.lock-top{display:flex;flex-direction:column;align-items:center;gap:18px}
+.lock-title{color:#fff;font-size:22px;font-weight:300}
+.lock-dots{display:flex;gap:18px}
+.lock-dot{width:12px;height:12px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.5);background:transparent;transition:background 0.12s}
+.lock-dot.filled{background:rgba(255,255,255,0.9)}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;width:100%;max-width:300px}
+.nk{aspect-ratio:1;border-radius:50%;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;-webkit-user-select:none;user-select:none}
+.nk:active{background:rgba(255,255,255,0.22)}
+.nk .nb{font-size:30px;font-weight:300;line-height:1}
+.nk .ns{font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.4);margin-top:2px}
+.lock-bottom{display:flex;justify-content:space-between;align-items:center;width:100%;max-width:300px}
+.lock-act{color:rgba(255,255,255,0.7);font-size:15px;font-weight:300;cursor:pointer;padding:10px 8px}
+.lock-act:active{opacity:0.3}
+.lock-zero{width:84px;height:84px}
+
+/* ── MIS NÚMEROS ── */
+.mn-chips{display:flex;justify-content:center;gap:10px;padding:24px 20px 0;flex-wrap:wrap}
+.mn-chip{background:#1a1a1a;border-radius:14px;min-width:52px;height:52px;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:200;color:#fff;font-variant-numeric:tabular-nums;position:relative;border:0.5px solid #2a2a2a}
+.mn-chip .x{position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;background:#ff453a;color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:600}
+.mn-chip.empty{background:#0d0d0d;border:0.5px dashed #1a1a1a;color:#222;font-size:26px}
+.mn-hint{color:#3a3a3a;font-size:13px;text-align:center;padding:10px 20px 0}
+.mn-keypad{padding:0 16px 32px;margin-top:auto}
+
+/* ── COMBOS ── */
+.combos-card{margin:16px 20px 0;background:#0d0d0d;border:0.5px solid #1a1a1a;border-radius:16px;padding:16px 16px 8px}
+.combos-label{color:#3a3a3a;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.9px;margin-bottom:12px}
+.combo-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:0.5px solid #111}
+.combo-row:first-of-type{border-top:none}
+.combo-n{color:#fff;font-size:13px;min-width:52px;font-variant-numeric:tabular-nums}
+.combo-n.best{color:#30d158}
+.combo-bar-bg{flex:1;height:3px;background:#111;border-radius:2px}
+.combo-bar-fill{height:3px;border-radius:2px}
+.combo-c{color:#3a3a3a;font-size:12px;min-width:48px;text-align:right;font-variant-numeric:tabular-nums}
+
+/* ── PROGRAMAR ── */
+.prog-list{padding:16px 20px;display:flex;flex-direction:column;gap:8px}
+.prog-row{background:#0d0d0d;border:0.5px solid #1a1a1a;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px}
+.prog-badge{width:26px;height:26px;border-radius:50%;background:#1a1a1a;color:#555;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.prog-badge.new{color:#30d158;background:#0d2e14}
+.prog-badge.active{color:#fff;background:#1c1c1e}
+.prog-toggle{display:flex;background:#111;border-radius:20px;padding:3px;gap:2px;flex-shrink:0}
+.prog-opt{padding:5px 10px;border-radius:16px;font-size:12px;font-weight:500;cursor:pointer;color:#3a3a3a;transition:all 0.12s;-webkit-user-select:none;user-select:none}
+.prog-opt:active{opacity:0.6}
+.prog-opt.am{background:#1c3320;color:#30d158}
+.prog-opt.an{background:#1c1040;color:#bf5af2}
+.prog-opt.ao{background:#1a1a1a;color:#555}
+.prog-hint{color:#222;font-size:12px;text-align:center;padding:8px 0}
+.prog-save-btn{margin:8px 20px 32px;background:#1c3320;border-radius:14px;color:#30d158;font-size:17px;font-weight:600;padding:16px;text-align:center;cursor:pointer;border:none;width:calc(100% - 40px)}
+.prog-save-btn:active{filter:brightness(0.7)}
+</style>
+</head>
+<body>
+
+<!-- STOPWATCH -->
+<div class="screen" id="mainScreen">
+  <div class="time-wrap">
+    <div class="time-display"><span id="secretTrigger">00</span><span id="timeRest">:00,00</span></div>
+  </div>
+
+  <div class="buttons-section">
+    <div class="btn-row">
+      <button class="circle-btn btn-reset" id="btnReset" disabled>Reset</button>
+      <div class="dots"><div class="dot on"></div><div class="dot"></div></div>
+      <button class="circle-btn btn-start" id="btnStart">Start</button>
+    </div>
+    <div class="divider"></div>
+  </div>
+</div>
+
+<!-- MENU -->
+<div class="panel" id="menuPanel">
+  <div class="p-nav">
+    <div class="p-title">Ajuste</div>
+    <div class="p-btn" id="menuClose">Cerrar</div>
+  </div>
+
+  <!-- MODE SELECTOR in menu -->
+  <div style="padding:20px 20px 0">
+    <div style="color:#48484a;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.9px;padding:0 4px;margin-bottom:8px">Modo activo</div>
+    <div class="mode-selector" id="modeSelector" style="width:100%;border-radius:14px;background:#0d0d0d;border:0.5px solid #1a1a1a;padding:4px;gap:4px">
+      <div class="ms-opt sel-m" data-mode="magic" id="msM" style="flex:1;text-align:center;border-radius:10px;padding:10px 8px">Mágico</div>
+      <div class="ms-opt" data-mode="mynums" id="msN" style="flex:1;text-align:center;border-radius:10px;padding:10px 8px">Mis números</div>
+      <div class="ms-opt" data-mode="program" id="msP" style="flex:1;text-align:center;border-radius:10px;padding:10px 8px">Programa</div>
+    </div>
+    <div class="prog-indicator" id="progIndicator" style="margin-top:8px;text-align:center"></div>
+  </div>
+
+  <div class="menu-section" style="margin-top:20px">
+    <div class="menu-section-label">Número mágico</div>
+    <div class="menu-rows">
+      <div class="mrow" id="menuGoInput">
+        <div class="mrow-left">
+          <div class="mrow-title">Cambiar número</div>
+          <div class="mrow-sub" id="menuMagicSub">Suma de dígitos → 18</div>
+        </div>
+        <div class="mrow-right">›</div>
+      </div>
+      <div class="mrow" id="menuGoLock">
+        <div class="mrow-left"><div class="mrow-title">Pantalla bloqueada</div></div>
+        <div class="mrow-right">›</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="menu-section" style="margin-top:16px">
+    <div class="menu-section-label">Mis números</div>
+    <div class="menu-rows">
+      <div class="mrow" id="menuGoMyNums">
+        <div class="mrow-left">
+          <div class="mrow-title">Editar números</div>
+          <div class="mrow-sub" id="menuMyNumsSub">Sin números definidos</div>
+        </div>
+        <div class="mrow-right">›</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="menu-section" style="margin-top:16px">
+    <div class="menu-section-label">Programa</div>
+    <div class="menu-rows">
+      <div class="mrow" id="menuGoProgram">
+        <div class="mrow-left">
+          <div class="mrow-title">Configurar paradas</div>
+          <div class="mrow-sub" id="menuProgSub">Sin programa activo</div>
+        </div>
+        <div class="mrow-right">›</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:32px"></div>
+</div>
+
+<!-- INPUT NÚMERO MÁGICO -->
+<div class="panel" id="inputPanel">
+  <div class="p-nav">
+    <div class="p-btn" id="inputBack">‹ Ajuste</div>
+    <div class="p-title-sm">Número mágico</div>
+    <div style="width:72px"></div>
+  </div>
+  <div class="big-display-area">
+    <div class="big-number ph" id="inputNum">–</div>
+    <div class="big-hint">suma de dígitos al parar</div>
+  </div>
+  <div class="keypad">
+    <div class="kg" id="magicKg">
+      <div class="k" data-n="1">1</div><div class="k" data-n="2">2</div><div class="k" data-n="3">3</div>
+      <div class="k" data-n="4">4</div><div class="k" data-n="5">5</div><div class="k" data-n="6">6</div>
+      <div class="k" data-n="7">7</div><div class="k" data-n="8">8</div><div class="k" data-n="9">9</div>
+      <div class="k k-del" data-action="del">⌫</div>
+      <div class="k" data-n="0">0</div>
+      <div class="k k-ok" data-action="ok">OK</div>
+    </div>
+  </div>
+</div>
+
+<!-- LOCK -->
+<div class="panel" id="lockPanel">
+  <div class="lock-top">
+    <div class="lock-title">Introduzca el código</div>
+    <div class="lock-dots">
+      <div class="lock-dot" id="ld0"></div><div class="lock-dot" id="ld1"></div>
+      <div class="lock-dot" id="ld2"></div><div class="lock-dot" id="ld3"></div>
+    </div>
+  </div>
+  <div class="numpad" id="numpad">
+    <div class="nk" data-n="1"><span class="nb">1</span><span class="ns"></span></div>
+    <div class="nk" data-n="2"><span class="nb">2</span><span class="ns">ABC</span></div>
+    <div class="nk" data-n="3"><span class="nb">3</span><span class="ns">DEF</span></div>
+    <div class="nk" data-n="4"><span class="nb">4</span><span class="ns">GHI</span></div>
+    <div class="nk" data-n="5"><span class="nb">5</span><span class="ns">JKL</span></div>
+    <div class="nk" data-n="6"><span class="nb">6</span><span class="ns">MNO</span></div>
+    <div class="nk" data-n="7"><span class="nb">7</span><span class="ns">PQRS</span></div>
+    <div class="nk" data-n="8"><span class="nb">8</span><span class="ns">TUV</span></div>
+    <div class="nk" data-n="9"><span class="nb">9</span><span class="ns">WXYZ</span></div>
+  </div>
+  <div class="lock-bottom">
+    <div class="lock-act" id="lockBack">‹ Volver</div>
+    <div class="nk lock-zero" data-n="0"><span class="nb">0</span></div>
+    <div class="lock-act" id="lockDel">⌫</div>
+  </div>
+</div>
+
+<!-- MIS NÚMEROS -->
+<div class="panel" id="myNumPanel">
+  <div class="p-nav">
+    <div class="p-btn" id="myNumBack">‹ Ajuste</div>
+    <div class="p-title-sm">Mis números</div>
+    <div style="width:72px"></div>
+  </div>
+  <div class="mn-chips" id="mnChips"></div>
+  <div class="mn-hint" id="mnHint">Toca × para eliminar · Máx. 5</div>
+  <div class="mn-keypad">
+    <div class="kg" id="myNumKg">
+      <div class="k" data-n="1">1</div><div class="k" data-n="2">2</div><div class="k" data-n="3">3</div>
+      <div class="k" data-n="4">4</div><div class="k" data-n="5">5</div><div class="k" data-n="6">6</div>
+      <div class="k" data-n="7">7</div><div class="k" data-n="8">8</div><div class="k" data-n="9">9</div>
+      <div class="k k-del" data-action="del">⌫</div>
+      <div class="k" data-n="0">0</div>
+      <div class="k k-empty"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PROGRAMAR -->
+<div class="panel" id="programPanel">
+  <div class="p-nav">
+    <div class="p-btn" id="progBack">‹ Ajuste</div>
+    <div class="p-title-sm">Programa</div>
+    <div style="width:72px"></div>
+  </div>
+  <div class="prog-list" id="progList"></div>
+  <button class="prog-save-btn" id="progSave">Activar programa</button>
+</div>
+
+<script>
+(function(){
+  let magic=18, myNums=[], lockEntry='', inputEntry='';
+  let program=['magic','magic','magic','magic','magic'];
+  const PROG_MAX=12;
+  let programActive=false, stopIndex=0;
+  // activeMode: 'magic' | 'mynums' | 'program'
+  let activeMode='magic';
+  let running=false, startWall=0, accumulated=0, rafId=null;
+
+  const secretSpan=document.getElementById('secretTrigger');
+  const timeRest=document.getElementById('timeRest');
+  const btnStart=document.getElementById('btnStart');
+  const btnReset=document.getElementById('btnReset');
+  const progIndicator=document.getElementById('progIndicator');
+  const inputNum=document.getElementById('inputNum');
+  const lockDots=[0,1,2,3].map(i=>document.getElementById('ld'+i));
+
+  function pad2(n){return String(n).padStart(2,'0')}
+
+  function setDisplay(ms){
+    let tc=Math.floor(ms/10),ts=Math.floor(tc/100),cs=tc%100;
+    secretSpan.textContent=pad2(Math.floor(ts/60));
+    timeRest.textContent=':'+pad2(ts%60)+','+pad2(cs);
+  }
+
+  function dsum(m,s,c){return Math.floor(m/10)+m%10+Math.floor(s/10)+s%10+Math.floor(c/10)+c%10}
+
+  function snapMagic(ms){
+    let tc=Math.floor(ms/10),ts=Math.floor(tc/100),cc=tc%100;
+    let m=Math.floor(ts/60),s=ts%60,valid=[];
+    for(let c=0;c<100;c++) if(dsum(m,s,c)===magic) valid.push(c);
+    if(valid.length) return (ts*100+valid.reduce((a,b)=>Math.abs(a-cc)<Math.abs(b-cc)?a:b))*10;
+    for(let j=1;j<=10;j++){
+      let s2=ts+j,m2=Math.floor(s2/60),ss=s2%60;
+      for(let c=0;c<100;c++) if(dsum(m2,ss,c)===magic) return (s2*100+c)*10;
+    }
+    return ms;
+  }
+
+  function snapMyNums(ms){
+    if(!myNums.length) return ms;
+    let tc=Math.floor(ms/10),ts=Math.floor(tc/100),cc=tc%100;
+
+    // Find nearest target second
+    let best=null,bestDist=Infinity;
+    for(let num of myNums){
+      for(let cand=Math.max(0,ts-30);cand<=ts+30;cand++){
+        if(cand%60===num){let d=Math.abs(cand-ts);if(d<bestDist){bestDist=d;best=cand;}}
+      }
+    }
+    if(best===null) return ms;
+
+    // Centesimal digits: remove digits already used in the seconds display
+    // e.g. stopped at second 5 → digit 5 is used → only 3,2 remain for centesimals
+    let secDigits=[Math.floor((best%60)/10),(best%60)%10]; // digits of the seconds value
+    let availDigits=myNums.map(n=>n%10).filter(d=>!secDigits.includes(d)||secDigits.filter(x=>x===d).length<myNums.filter(n=>n%10===d).length);
+
+    // Remove used sec digits one by one
+    let pool=myNums.map(n=>n%10);
+    for(let sd of secDigits){
+      let idx=pool.indexOf(sd);
+      if(idx!==-1) pool.splice(idx,1);
+    }
+
+    let combos=[];
+    if(pool.length>=2){
+      for(let i=0;i<pool.length;i++) for(let j=0;j<pool.length;j++) if(i!==j) combos.push(pool[i]*10+pool[j]);
+    } else if(pool.length===1){
+      combos.push(pool[0]); // single digit centesimal e.g. 03
+    }
+    combos=[...new Set(combos)].filter(c=>c>=0&&c<100);
+    if(!combos.length) combos=[32,23,35,53]; // fallback
+
+    let bestCs=combos.reduce((a,b)=>Math.abs(a-cc)<Math.abs(b-cc)?a:b);
+    return (best*100+bestCs)*10;
+  }
+
+  function getSnapFn(){
+    if(activeMode==='program'){
+      let m=program[stopIndex]||'off';
+      if(m==='magic') return snapMagic;
+      if(m==='mynums') return snapMyNums;
+      return ms=>ms;
+    }
+    if(activeMode==='mynums') return snapMyNums;
+    return snapMagic;
+  }
+
+  function elapsedMs(){return running?accumulated+(Date.now()-startWall):accumulated}
+  function tick(){setDisplay(elapsedMs());rafId=requestAnimationFrame(tick)}
+
+  btnStart.addEventListener('click',()=>{
+    if(!running){
+      running=true;startWall=Date.now();
+      btnStart.textContent='Stop';btnStart.className='circle-btn btn-stop';
+      btnReset.disabled=false;rafId=requestAnimationFrame(tick);
+    } else {
+      cancelAnimationFrame(rafId);running=false;
+      accumulated=getSnapFn()(accumulated+(Date.now()-startWall));
+      setDisplay(accumulated);
+      btnStart.textContent='Start';btnStart.className='circle-btn btn-start';
+      if(activeMode==='program'){
+        stopIndex++;
+        let remaining=program.slice(stopIndex);
+        if(stopIndex>=program.length||remaining.every(p=>p==='off')) stopIndex=0;
+        updateProgIndicator();
+      }
+    }
+  });
+
+  btnReset.addEventListener('click',()=>{
+    if(!running){accumulated=0;setDisplay(0);btnReset.disabled=true;stopIndex=0;updateProgIndicator();}
+  });
+
+  // Mode selector
+  document.getElementById('modeSelector').addEventListener('click',e=>{
+    const opt=e.target.closest('[data-mode]');if(!opt) return;
+    activeMode=opt.dataset.mode;
+    updateModeSelector();
+  });
+
+  function updateModeSelector(){
+    document.getElementById('msM').className='ms-opt'+(activeMode==='magic'?' sel-m':'');
+    document.getElementById('msN').className='ms-opt'+(activeMode==='mynums'?' sel-n':'');
+    document.getElementById('msP').className='ms-opt'+(activeMode==='program'?' sel-p':'');
+    updateProgIndicator();
+  }
+
+  function updateProgIndicator(){
+    if(activeMode==='program'&&programActive){
+      let m=program[stopIndex]||'off';
+      let active=program.filter(p=>p!=='off');
+      let lbl=m==='magic'?'Mágico':m==='mynums'?'Mis números':'Libre';
+      progIndicator.textContent='Parada '+(stopIndex+1)+' / '+active.length+' · '+lbl;
+      progIndicator.classList.add('show');
+    } else {
+      progIndicator.classList.remove('show');
+    }
+  }
+
+  // Panels
+  const allPanels=['menuPanel','inputPanel','lockPanel','myNumPanel','programPanel'].map(id=>document.getElementById(id));
+  function showPanel(id){allPanels.forEach(p=>p.classList.remove('show'));if(id)document.getElementById(id).classList.add('show');}
+
+  function refreshMenuSubs(){
+    document.getElementById('menuMagicSub').textContent='Suma de dígitos → '+magic;
+    document.getElementById('menuMyNumsSub').textContent=myNums.length?'Segundos: '+myNums.join(' · '):'Sin números definidos';
+    document.getElementById('menuProgSub').textContent=programActive?'Activo · parada '+(stopIndex+1):'Sin programa activo';
+  }
+
+  secretSpan.addEventListener('click',()=>{refreshMenuSubs();showPanel('menuPanel');});
+  document.getElementById('menuClose').addEventListener('click',()=>showPanel(null));
+
+  // Magic input
+  document.getElementById('menuGoInput').addEventListener('click',()=>{inputEntry='';inputNum.textContent='–';inputNum.className='big-number ph';showPanel('inputPanel');});
+  document.getElementById('inputBack').addEventListener('click',()=>{refreshMenuSubs();showPanel('menuPanel');});
+  document.getElementById('magicKg').addEventListener('click',e=>{
+    const k=e.target.closest('[data-n],[data-action]');if(!k) return;
+    if(k.dataset.action==='del'){
+      inputEntry=inputEntry.slice(0,-1);
+      inputNum.textContent=inputEntry||'–';inputNum.className='big-number'+(inputEntry?'':' ph');
+    } else if(k.dataset.action==='ok'){
+      if(inputEntry) magic=Math.min(99,parseInt(inputEntry)||0);
+      refreshMenuSubs();showPanel('menuPanel');
+    } else {
+      if(inputEntry.length>=2) return;
+      inputEntry+=k.dataset.n;inputNum.textContent=inputEntry;inputNum.className='big-number';
+    }
+  });
+
+  // Lock
+  document.getElementById('menuGoLock').addEventListener('click',()=>{lockEntry='';updateLockDots();showPanel('lockPanel');});
+  document.getElementById('lockBack').addEventListener('click',()=>{refreshMenuSubs();showPanel('menuPanel');});
+  document.getElementById('lockDel').addEventListener('click',()=>{lockEntry=lockEntry.slice(0,-1);updateLockDots();});
+  function handleLockKey(n){if(lockEntry.length>=4)return;lockEntry+=n;updateLockDots();if(lockEntry.length===4)setTimeout(confirmLock,160);}
+  document.getElementById('numpad').addEventListener('click',e=>{const k=e.target.closest('[data-n]');if(k)handleLockKey(k.dataset.n);});
+  document.querySelector('.lock-zero').addEventListener('click',()=>handleLockKey('0'));
+  function updateLockDots(){lockDots.forEach((d,i)=>d.classList.toggle('filled',i<lockEntry.length));}
+  function confirmLock(){
+    magic=parseInt(lockEntry,10)||0;
+    lockDots.forEach(d=>d.style.background='rgba(255,255,255,0.95)');
+    setTimeout(()=>{lockDots.forEach(d=>{d.style.background='';d.classList.remove('filled');});lockEntry='';refreshMenuSubs();showPanel(null);},360);
+  }
+
+  // Mis números
+  document.getElementById('menuGoMyNums').addEventListener('click',()=>{renderMyNums();showPanel('myNumPanel');});
+  document.getElementById('myNumBack').addEventListener('click',()=>{refreshMenuSubs();showPanel('menuPanel');});
+
+  function renderMyNums(){
+    const c=document.getElementById('mnChips');c.innerHTML='';
+    myNums.forEach((n,i)=>{
+      const ch=document.createElement('div');ch.className='mn-chip';
+      ch.innerHTML=n+'<div class="x" data-idx="'+i+'">×</div>';
+      c.appendChild(ch);
+    });
+    for(let i=myNums.length;i<5;i++){const ch=document.createElement('div');ch.className='mn-chip empty';ch.textContent='+';c.appendChild(ch);}
+    document.getElementById('mnHint').textContent=myNums.length>=5?'Máximo 5 · Toca × para eliminar':'Toca × para eliminar · Máx. 5';
+  }
+
+  document.getElementById('mnChips').addEventListener('click',e=>{
+    const d=e.target.closest('[data-idx]');if(!d)return;
+    myNums.splice(parseInt(d.dataset.idx),1);renderMyNums();
+  });
+
+  document.getElementById('myNumKg').addEventListener('click',e=>{
+    const k=e.target.closest('[data-n],[data-action]');if(!k)return;
+    if(k.dataset.action==='del'){if(myNums.length>0){myNums.pop();renderMyNums();}}
+    else if(k.dataset.n!==undefined){
+      if(myNums.length>=5)return;
+      let v=parseInt(k.dataset.n);
+      if(!myNums.includes(v))myNums.push(v);
+      renderMyNums();
+    }
+  });
+
+  // Programar
+  document.getElementById('menuGoProgram').addEventListener('click',()=>{renderProgram();showPanel('programPanel');});
+  document.getElementById('progBack').addEventListener('click',()=>{refreshMenuSubs();showPanel('menuPanel');});
+
+  function renderProgram(){
+    if(program.length<PROG_MAX&&program.every(p=>p!=='off')) program.push('off');
+    const list=document.getElementById('progList');list.innerHTML='';
+    for(let i=0;i<program.length;i++){
+      const mode=program[i];
+      const isNew=i===program.length-1&&program.length>5&&mode==='off';
+      const row=document.createElement('div');row.className='prog-row';
+      row.innerHTML=`<div class="prog-badge ${isNew?'new':mode!=='off'?'active':''}">${i+1}</div>`+
+        `<div style="flex:1;color:${isNew?'#333':'#fff'};font-size:15px;">Parada ${i+1}</div>`+
+        `<div class="prog-toggle">`+
+        `<div class="prog-opt${mode==='magic'?' am':''}" data-stop="${i}" data-mode="magic">Mágico</div>`+
+        `<div class="prog-opt${mode==='mynums'?' an':''}" data-stop="${i}" data-mode="mynums">Mis n.</div>`+
+        `<div class="prog-opt${mode==='off'?' ao':''}" data-stop="${i}" data-mode="off">—</div>`+
+        `</div>`;
+      list.appendChild(row);
+    }
+    const hint=document.createElement('div');hint.className='prog-hint';
+    hint.textContent=program.length<PROG_MAX?'Activa la última parada para añadir más · máx. 12':'Máximo 12 paradas';
+    list.appendChild(hint);
+    list.addEventListener('click',e=>{
+      const opt=e.target.closest('[data-mode]');if(!opt)return;
+      program[parseInt(opt.dataset.stop)]=opt.dataset.mode;renderProgram();
+    });
+  }
+
+  document.getElementById('progSave').addEventListener('click',()=>{
+    if(program.filter(p=>p!=='off').length===0){return;}
+    programActive=true;stopIndex=0;activeMode='program';
+    updateModeSelector();refreshMenuSubs();showPanel(null);
+  });
+
+  // Init
+  setDisplay(0);updateModeSelector();
+})();
+</script>
+</body>
+</html>
